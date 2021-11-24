@@ -140,6 +140,7 @@ static const char* VERSION_STRING=
         "hstr version \"2.3.0\" (2020-11-19T07:41:00)"
         "\n";
 
+// hstr 설명문 컨트롤 + / view 목록
 static const char* HSTR_VIEW_LABELS[]={
         "ranking",
         "history",
@@ -290,8 +291,9 @@ static const struct option long_options[] = {
         {0,                        0,                  NULL,  0 }
 };
 
+//hstr 구조체
 typedef struct {
-    HistoryItems* history;
+    HistoryItems* history;      //hstr_history.h 에 선언
     FavoriteItems* favorites;
     Blacklist blacklist;
     HstrRegexp regexp;
@@ -406,15 +408,19 @@ void signal_callback_handler_ctrl_c(int signum)
 
 unsigned recalculate_max_history_items(void)
 {
+    // 창에서 Y 값 N으로
     int n = getmaxy(stdscr);
-    hstr->promptItems = n-1;
+    hstr->promptItems = n-1;   //promptItems 기록 표시 목록 크기
+    // 설정에 따라 hstr 표시 결정
     if(!hstr->hideBasicHelp) {
         hstr->promptItems--;
     }
     if(!hstr->hideHistoryHelp) {
         hstr->promptItems--;
     }
+    // promptBottom 명령어 입력창 위치 아래인지 아닌지
     if(hstr->promptBottom) {
+        // 도움말 표시 위치 
         if(hstr->helpOnOppositeSide) {
             // Layout:
             // - [basic help]
@@ -424,6 +430,7 @@ unsigned recalculate_max_history_items(void)
             // - items end
             // - prompt
             int top = 0;
+            // promptY 입력창 위치
             hstr->promptY = n-1;
             if(!hstr->hideBasicHelp) {
                 hstr->promptYHelp = top++;
@@ -486,7 +493,8 @@ unsigned recalculate_max_history_items(void)
             }
             hstr->promptYItemsStart = top++;
         }
-    }
+    }// 출력 모양 결정 완료
+    // 기록명령어 표시 끝 위치 결정 : 시작 위치 + 목록 크기 -1
     hstr->promptYItemsEnd = hstr->promptYItemsStart+hstr->promptItems-1;
     if(!hstr->hideBasicHelp) {
         // Use basic help label for notifications.
@@ -609,6 +617,7 @@ void hstr_get_env_configuration()
     }
 }
 
+// 명령어 입력창 표시 출력  user@호스트 이름 길이 반환
 unsigned print_prompt(void)
 {
     unsigned xoffset = 0, promptLength;
@@ -617,7 +626,7 @@ unsigned print_prompt(void)
         color_attr_on(COLOR_PAIR(HSTR_COLOR_PROMPT));
         color_attr_on(A_BOLD);
     }
-
+    // getenv 환경 변수 검색 값 반환
     char *prompt = getenv(HSTR_ENV_VAR_PROMPT);
     if(prompt) {
         mvprintw(hstr->promptY, xoffset, "%s", prompt);
@@ -627,7 +636,9 @@ unsigned print_prompt(void)
         char *hostname=malloc(HOSTNAME_BUFFER);
         user=(user?user:"me");
         get_hostname(HOSTNAME_BUFFER, hostname);
+        // 입력창에 user@호스트 이름 표시 $
         mvprintw(hstr->promptY, xoffset, "%s@%s$ ", user, hostname);
+        // 입력창 계정 정보 길이 뒤에 +2 위치 길이 반환
         promptLength=strlen(user)+1+strlen(hostname)+1+1;
         free(hostname);
     }
@@ -660,11 +671,14 @@ void print_help_label(void)
     if(hstr->hideBasicHelp)
         return;
 
-    int cursorX=getcurx(stdscr);
+    int cursorX=getcurx(stdscr);  //getcurx x는 열, y는 줄 커서 위치
     int cursorY=getcury(stdscr);
 
     char screenLine[CMDLINE_LNG];
+    // hstr 실행 2번줄 도움말  promptYHelp hstr 모드시 줄 위치 추정
     snprintf(screenLine, getmaxx(stdscr), "%s", LABEL_HELP);
+    // clrtoeol 커서 오른쪽 모두 지움
+    //mvprintw  (Y,X,내용)  Y : 줄 위치 ,X 열 위치 promptYHelp 도움말 위치
     mvprintw(hstr->promptYHelp, 0, "%s", screenLine); clrtoeol();
     refresh();
 
@@ -732,6 +746,7 @@ void print_regexp_error(const char* errorMessage)
     refresh();
 }
 
+// 즐겨찾기 추가시 설명문 변경됨 배경색 기본 초록
 void print_cmd_added_favorite_label(const char* cmd)
 {
     char screenLine[CMDLINE_LNG];
@@ -740,6 +755,7 @@ void print_cmd_added_favorite_label(const char* cmd)
         color_attr_on(COLOR_PAIR(HSTR_COLOR_INFO));
         color_attr_on(A_BOLD);
     }
+    //promptYNotification 알림 창 역할
     mvprintw(hstr->promptYNotification, 0, screenLine);
     if(hstr->theme & HSTR_THEME_COLOR) {
         color_attr_off(A_BOLD);
@@ -749,14 +765,16 @@ void print_cmd_added_favorite_label(const char* cmd)
     refresh();
 }
 
+// hstr 내부에서 사용  hstr 설명문
 void print_history_label(void)
 {
     if(hstr->hideHistoryHelp)
         return;
 
-    unsigned width=getmaxx(stdscr);
+    unsigned width=getmaxx(stdscr);      //getmaxx 최대 x좌표값 반환,  stdscr  창 크기 
 
-    char screenLine[CMDLINE_LNG];
+    char screenLine[CMDLINE_LNG];   // CMDLINE_LNG 2048 
+    // snprintf  ( 버퍼,  출력 크기, "내용",)
 #ifdef __APPLE__
     snprintf(screenLine, width, "- HISTORY - view:%s (C-w) - match:%s (C-e) - case:%s (C-t) - %d/%d/%d ",
 #else
@@ -768,15 +786,20 @@ void print_history_label(void)
             hstr->history->count,
             hstr->history->rawCount,
             hstr->favorites->count);
+            //  HSTR_VIEW_LABELS[hstr->view] : ranking, history, favorit등 보여줌,
+            //  hstr 구조체  각각 명령어 숫자 count
     width -= strlen(screenLine);
     unsigned i;
+    // 설명문 나머지 뒤 라인을 '-' 로 채움
     for(i=0; i<width; i++) {
         strcat(screenLine, "-");
     }
+    // 비트 연산  & AND  DARK 이면 배경속성 추정
     if(hstr->theme & HSTR_THEME_COLOR) {
         color_attr_on(A_BOLD);
     }
     color_attr_on(A_REVERSE);
+    // move promptYHistory, 0 커서 이동 후 출력
     mvprintw(hstr->promptYHistory, 0, "%s", screenLine);
     color_attr_off(A_REVERSE);
     if(hstr->theme & HSTR_THEME_COLOR) {
@@ -785,6 +808,7 @@ void print_history_label(void)
     refresh();
 }
 
+//print_pattern 패턴 프롬포트에 출력
 void print_pattern(char* pattern, int y, int x)
 {
     if(pattern) {
@@ -795,13 +819,16 @@ void print_pattern(char* pattern, int y, int x)
     }
 }
 
+// selection 에 메모리 할당 함수 
 // TODO don't realloc if size doesn't change
 void hstr_realloc_selection(unsigned size)
 {
     if(hstr->selection) {
         if(size) {
+            // realloc 동적 메모리 할당 크기를 변경
             hstr->selection
                 =realloc(hstr->selection, sizeof(char*) * size);
+            // 정규식 관련 변수
             hstr->selectionRegexpMatch
                 =realloc(hstr->selectionRegexpMatch, sizeof(regmatch_t) * size);
         } else {
@@ -818,6 +845,7 @@ void hstr_realloc_selection(unsigned size)
     }
 }
 
+// 정규식 검색으로 추청
 unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSelectionCount)
 {
     hstr_realloc_selection(maxSelectionCount);
@@ -826,6 +854,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
     char **source;
     unsigned count;
 
+    // HISTORY 1, FAVORITES 2, RANKING 0
     switch(hstr->view) {
     case HSTR_VIEW_HISTORY:
         source=history->rawItems;
@@ -1058,6 +1087,8 @@ void hstr_print_highlighted_selection_row(char* text, int y, int width)
     color_attr_off(A_BOLD);
 }
 
+// hstr_print_selection -> hstr_make_selection -> hstr_realloc_selection
+// maxHistoryItems 변수 끝까지 인수로 받아짐
 char* hstr_print_selection(unsigned maxHistoryItems, char* pattern)
 {
     char* result=NULL;
@@ -1065,12 +1096,13 @@ char* hstr_print_selection(unsigned maxHistoryItems, char* pattern)
     if (selectionCount > 0) {
         result=hstr->selection[0];
     }
-
+    //recalculate_max_history_items 표시 모양 결정 , 목록 크기 반환 hstr->promptItems
     unsigned height=recalculate_max_history_items();
     unsigned width=getmaxx(stdscr);
     unsigned i;
     int y;
-
+    
+    // 커서 목록 시작 지점 이동 후 아래 모든 문자 지움
     move(hstr->promptYItemsStart, 0);
     clrtobot();
     bool labelsAreOnBottom = (hstr->promptBottom && !hstr->helpOnOppositeSide) || (!hstr->promptBottom && hstr->helpOnOppositeSide);
@@ -1081,6 +1113,7 @@ char* hstr_print_selection(unsigned maxHistoryItems, char* pattern)
     }
     if(hstr->promptBottom) {
         // TODO: Why is the reprinting here necessary? Please make a comment.
+        // print_pattern
         print_pattern(pattern, hstr->promptY, print_prompt());
         y=hstr->promptYItemsEnd;
     } else {
@@ -1092,6 +1125,7 @@ char* hstr_print_selection(unsigned maxHistoryItems, char* pattern)
     for(i=0; i<height; ++i) {
         if(i<hstr->selectionSize) {
             // TODO make this function
+            // 패턴 문자 비었는지 확인
             if(pattern && strlen(pattern)) {
                 if(hstr->matching==HSTR_MATCH_REGEXP) {
                     start=hstr->selectionRegexpMatch[i].rm_so;
@@ -1190,6 +1224,7 @@ int remove_from_history_model(char* almostDead)
 void hstr_next_view(void)
 {
     hstr->view++;
+    // 3의 나머지 로 0,1,2 순환
     hstr->view=hstr->view%3;
 }
 
@@ -1378,8 +1413,11 @@ void loop_to_select(void)
         // reserved for view rotation on macOS
         case K_CTRL_W:
 #endif
+    //컨트롤 + / 슬래쉬 목록 표시 변경
         case K_CTRL_SLASH:
+            // hstr->view++;
             hstr_next_view();
+            //result 1281줄에 선언 
             result=hstr_print_selection(maxHistoryItems, pattern);
             print_history_label();
             // TODO function
