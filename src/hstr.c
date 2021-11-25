@@ -292,6 +292,9 @@ static const struct option long_options[] = {
         {0,                        0,                  NULL,  0 }
 };
 
+// 기본 명령어 파일 저장 이름
+#define FILE_HSTR_MYCOMMANDITEM ".hstr_mycommand"
+
 // 기본 명령어 보기 테스트 구조체  Favorite 구조체 따라함
 typedef struct MyCommandItem 
 {
@@ -303,6 +306,7 @@ typedef struct MyCommandItem
     HashSet* set;
 } MyCommandItem;
 
+static MyCommandItem* mycommandtest;
 
 //hstr 구조체
 typedef struct {
@@ -348,6 +352,7 @@ typedef struct {
 
 static Hstr* hstr;
 
+// 기본 명령어 보기 구조체 초기화
 void MyCommandItem_init(MyCommandItem* Mycommand)
 {
     Mycommand->items=NULL;
@@ -357,6 +362,17 @@ void MyCommandItem_init(MyCommandItem* Mycommand)
     Mycommand->skipComments=false;
     Mycommand->set=malloc(sizeof(HashSet));
     hashset_init(Mycommand->set);
+}
+
+// 기본 명령어 보기 구조체 파일 읽기
+char* MyCommandItem_get_filename()
+{
+    char* home = getenv(ENV_VAR_HOME);
+    char* fileName = (char*) malloc(strlen(home) + 1 + strlen(FILE_HSTR_MYCOMMANDITEM) + 1);
+    strcpy(fileName, home);
+    strcat(fileName, "/");
+    strcat(fileName, FILE_HSTR_MYCOMMANDITEM);
+    return fileName;
 }
 
 void hstr_init(void)
@@ -889,7 +905,8 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         count=hstr->favorites->count;
         break;
     case HSTR_VIEW_TEST:
-        source = hstr->
+        source = mycommandtest->items;
+        source = mycommandtest->items;
     case HSTR_VIEW_RANKING:
     default:
         source=history->items;
