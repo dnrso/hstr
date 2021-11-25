@@ -101,6 +101,7 @@
 #define HSTR_VIEW_RANKING      0
 #define HSTR_VIEW_HISTORY      1
 #define HSTR_VIEW_FAVORITES    2
+#define HSTR_VIEW_TEST         3
 
 #define HSTR_MATCH_SUBSTRING   0
 #define HSTR_MATCH_REGEXP      1
@@ -291,6 +292,18 @@ static const struct option long_options[] = {
         {0,                        0,                  NULL,  0 }
 };
 
+// 기본 명령어 보기 테스트 구조체  Favorite 구조체 따라함
+typedef struct MyCommandItem 
+{
+    char** items;
+    unsigned count;
+    bool loaded;
+    bool reorderOnChoice;
+    bool skipComments;
+    HashSet* set;
+} MyCommandItem;
+
+
 //hstr 구조체
 typedef struct {
     HistoryItems* history;      //hstr_history.h 에 선언
@@ -334,6 +347,17 @@ typedef struct {
 } Hstr;
 
 static Hstr* hstr;
+
+void MyCommandItem_init(MyCommandItem* Mycommand)
+{
+    Mycommand->items=NULL;
+    Mycommand->count=0;
+    Mycommand->loaded=false;
+    Mycommand->reorderOnChoice=true;
+    Mycommand->skipComments=false;
+    Mycommand->set=malloc(sizeof(HashSet));
+    hashset_init(Mycommand->set);
+}
 
 void hstr_init(void)
 {
@@ -864,6 +888,8 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         source=hstr->favorites->items;
         count=hstr->favorites->count;
         break;
+    case HSTR_VIEW_TEST:
+        source = hstr->
     case HSTR_VIEW_RANKING:
     default:
         source=history->items;
