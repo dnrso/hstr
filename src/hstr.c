@@ -305,7 +305,7 @@ typedef struct MyCommandItem
     bool skipComments;
     HashSet* set;
 } MyCommandItem;
-
+// 기본 명령어 보기 구조체 선언
 static MyCommandItem* mycommandtest;
 
 //hstr 구조체
@@ -375,10 +375,66 @@ char* MyCommandItem_get_filename()
     return fileName;
 }
 
+void MyCommandItem_get(MyCommandItem* Mycommand)
+{
+    if(!Mycommand->loaded) {
+        char* fileName = MyCommandItem_get_filename();
+        char* fileContent = NULL;
+        if(access(fileName, F_OK) != -1) {
+            long inputFileSize;
+
+            FILE* inputFile = fopen(fileName, "rb");
+            fseek(inputFile, 0, SEEK_END);
+            inputFileSize = ftell(inputFile);
+            rewind(inputFile);
+            fileContent = malloc((inputFileSize + 1) * (sizeof(char)));
+            if(!fread(fileContent, sizeof(char), inputFileSize, inputFile)) {
+                if(ferror(inputFile)) {
+                    exit(EXIT_FAILURE);
+                }
+            }
+            fclose(inputFile);
+            fileContent[inputFileSize] = 0;
+
+            if(fileContent && strlen(fileContent)) {
+                Mycommand->count = 0;
+                char* p=strchr(fileContent,'\n');
+                while (p!=NULL) {
+                    Mycommand->count++;
+                    p=strchr(p+1,'\n');
+                }
+
+                Mycommand->items = malloc(sizeof(char*) * Mycommand->count);
+                Mycommand->count = 0;
+                char* pb=fileContent, *pe, *s;
+                pe=strchr(fileContent, '\n');
+                while(pe!=NULL) {
+                    *pe=0;
+                    if(!hashset_contains(Mycommand->set,pb)) {
+                        if(!Mycommand->skipComments || !(strlen(pb) && pb[0]=='#')) {
+                            s=hstr_strdup(pb);
+                            Mycommand->items[Mycommand->count++]=s;
+                            hashset_add(Mycommand->set,s);
+                        }
+                    }
+                    pb=pe+1;
+                    pe=strchr(pb, '\n');
+                }
+                free(fileContent);
+            }
+        } else {
+            // favorites file not found > favorites don't exist yet
+            Mycommand->loaded=true;
+        }
+        free(fileName);
+    }
+}
+
 void hstr_init(void)
 {
     hstr->history=NULL;
     hstr->favorites=malloc(sizeof(FavoriteItems));
+    MyCommandItem_init(mycommandtest);
     favorites_init(hstr->favorites);
     blacklist_init(&hstr->blacklist);
     hstr_regexp_init(&hstr->regexp);
@@ -907,6 +963,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
     case HSTR_VIEW_TEST:
         source = mycommandtest->items;
         source = mycommandtest->items;
+        break;
     case HSTR_VIEW_RANKING:
     default:
         source=history->items;
@@ -1267,8 +1324,8 @@ int remove_from_history_model(char* almostDead)
 void hstr_next_view(void)
 {
     hstr->view++;
-    // 3의 나머지 로 0,1,2 순환
-    hstr->view=hstr->view%3;
+    // 3의 나머지 로 0,1,2,3 순환
+    hstr->view=hstr->view%4;
 }
 
 void stdout_history_and_return(void)
@@ -1815,6 +1872,7 @@ int hstr_main(int argc, char* argv[])
     hstr_getopt(argc, argv);
     favorites_get(hstr->favorites);
     blacklist_load(&hstr->blacklist);
+    MyCommandItem_get(mycommandtest);
     // hstr cleanup is handled by hstr_exit()
     hstr_interactive();
 
