@@ -141,11 +141,13 @@ static const char* VERSION_STRING=
         "hstr version \"2.3.0\" (2020-11-19T07:41:00)"
         "\n";
 
-// hstr 설명문 컨트롤 + / view 목록
+// hstr 설명문 컨트롤 + / view 목록  
+// 기본 명령어 추가 Base_Command ;
 static const char* HSTR_VIEW_LABELS[]={
         "ranking",
         "history",
-        "favorites"
+        "favorites",
+        "Base_Command"
 };
 
 static const char* HSTR_MATCH_LABELS[]={
@@ -364,6 +366,22 @@ void MyCommandItem_init(MyCommandItem* Mycommand)
     hashset_init(Mycommand->set);
 }
 
+//구조체 제거 메모리 제거 
+void MyCommandItem_destroy(MyCommandItem* Mycommand)
+{
+    if(Mycommand) {
+        // TODO hashset destroys keys - no need to destroy items!
+        unsigned i;
+        for(i=0; i<Mycommand->count; i++) {
+            free(Mycommand->items[i]);
+        }
+        free(Mycommand->items);
+        hashset_destroy(Mycommand->set, false);
+        free(Mycommand->set);
+        free(Mycommand);
+    }
+}
+
 // 기본 명령어 보기 구조체 파일 읽기
 char* MyCommandItem_get_filename()
 {
@@ -475,8 +493,11 @@ void hstr_init(void)
     hstr->noIoctl=false;
 }
 
+// 메모리 할당 종료
 void hstr_destroy(void)
 {
+    //기본 명령어 할당 종료
+    MyCommandItem_destroy(mycommandtest);
     favorites_destroy(hstr->favorites);
     hstr_regexp_destroy(&hstr->regexp);
     // blacklist is allocated by hstr struct
@@ -951,6 +972,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
     unsigned count;
 
     // HISTORY 1, FAVORITES 2, RANKING 0
+    // 기본 명령어 추가 HSTR_VIEW_TEST 3 
     switch(hstr->view) {
     case HSTR_VIEW_HISTORY:
         source=history->rawItems;
@@ -962,7 +984,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         break;
     case HSTR_VIEW_TEST:
         source = mycommandtest->items;
-        source = mycommandtest->items;
+        count = mycommandtest->count;
         break;
     case HSTR_VIEW_RANKING:
     default:
@@ -1865,6 +1887,8 @@ int hstr_main(int argc, char* argv[])
 {
     setlocale(LC_ALL, "");
 
+    // 기본 명령어 추가 구조체 mycommandtest 에 메모리 할당
+    mycommandtest = malloc(sizeof(MyCommandItem));
     hstr=malloc(sizeof(Hstr));
     hstr_init();
 
@@ -1872,6 +1896,7 @@ int hstr_main(int argc, char* argv[])
     hstr_getopt(argc, argv);
     favorites_get(hstr->favorites);
     blacklist_load(&hstr->blacklist);
+    //  기본 명령어 추가  저장된 파일 불러오기
     MyCommandItem_get(mycommandtest);
     // hstr cleanup is handled by hstr_exit()
     hstr_interactive();

@@ -1,6 +1,24 @@
+# cd [파일경로]   파일경로로 이동
 cd
+# ls  파일 목록 표시
 ls
+#touch  파일 생성, 날짜 변경
+touch
+#mkdir 디렉토리 생성
 mkdir
+#cp  파일 복사
+cp
+#mv  파일 이동
+mv
+#rm 파일 제거
+rm
+#cat 내용 출력하거나 파일 생성
+cat
+#find [경로] -name [검색어] 파일,디렉토리 검색  
+find
+#redirection  출력결과 파일로 저장
+redirection
+#pwd  현재 폭더 위치 출력
 pwd
 touch
 find
