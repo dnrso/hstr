@@ -58,11 +58,13 @@ void favorites_get(FavoriteItems* favorites)
     if(!favorites->loaded) {
         char* fileName = favorites_get_filename();
         char* fileContent = NULL;
+        // access 파일 권한 체크 함수
         if(access(fileName, F_OK) != -1) {
             long inputFileSize;
 
             FILE* inputFile = fopen(fileName, "rb");
             fseek(inputFile, 0, SEEK_END);
+            //ftell 파일 포인터 현재 위치 반환 /파일 끝까지 이동하고 실행 파일 사이즈 반환
             inputFileSize = ftell(inputFile);
             rewind(inputFile);
             fileContent = malloc((inputFileSize + 1) * (sizeof(char)));

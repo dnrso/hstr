@@ -19,6 +19,8 @@
 #define _GNU_SOURCE
 
 #include "include/hstr.h"
+#include <dirent.h>
+#include <sys/stat.h>
 
 #define SELECTION_CURSOR_IN_PROMPT -1
 #define SELECTION_PREFIX_MAX_LNG 512
@@ -47,6 +49,8 @@
 #define K_CTRL_Z 26
 
 #define K_CTRL_SLASH 31
+//하위 디렉토리 탐색  출력 키 컨트롤 D
+#define K_CRTL_D  4
 
 #define K_ESC 27
 #define K_TAB 9
@@ -102,6 +106,7 @@
 #define HSTR_VIEW_HISTORY      1
 #define HSTR_VIEW_FAVORITES    2
 #define HSTR_VIEW_TEST         3
+#define HSTR_VIEW_DIRECTORY    4
 
 #define HSTR_MATCH_SUBSTRING   0
 #define HSTR_MATCH_REGEXP      1
@@ -147,7 +152,8 @@ static const char* HSTR_VIEW_LABELS[]={
         "ranking",
         "history",
         "favorites",
-        "Base_Command"
+        "Base_Command",
+        "directory"
 };
 
 static const char* HSTR_MATCH_LABELS[]={
@@ -276,7 +282,7 @@ static const char* HELP_STRING=
 
 // TODO help screen - curses window (tig)
 static const char* LABEL_HELP=
-        "Type to filter, UP/DOWN move, RET/TAB select, DEL remove, C-f add favorite, C-g cancel";
+        "Type to filter, UP/DOWN move, RET/TAB select, DEL remove, C-f add favorite, C-g cancel C-h dir";
 
 #define GETOPT_NO_ARGUMENT           0
 #define GETOPT_REQUIRED_ARGUMENT     1
@@ -309,6 +315,20 @@ typedef struct MyCommandItem
 } MyCommandItem;
 // 기본 명령어 보기 구조체 선언
 static MyCommandItem* mycommandtest;
+
+// 하위 디렉토리 구조체
+typedef struct DirItem
+{
+    char ** items;
+    unsigned count;
+    bool loaded;
+    bool reorderOnChoice;
+    bool skipComments;
+    HashSet* set;
+} DirItem;
+// 하위 디렉토리 구조체 선언
+static DirItem* diritem;
+
 
 //hstr 구조체
 typedef struct {
@@ -382,7 +402,7 @@ void MyCommandItem_destroy(MyCommandItem* Mycommand)
     }
 }
 
-// 기본 명령어 보기 구조체 파일 읽기
+// 기본 명령어 보기 구조체 파일 이름 반환
 char* MyCommandItem_get_filename()
 {
     char* home = getenv(ENV_VAR_HOME);
@@ -393,6 +413,7 @@ char* MyCommandItem_get_filename()
     return fileName;
 }
 
+// 기본 명령어 저장된 파일 읽기
 void MyCommandItem_get(MyCommandItem* Mycommand)
 {
     if(!Mycommand->loaded) {
@@ -448,11 +469,117 @@ void MyCommandItem_get(MyCommandItem* Mycommand)
     }
 }
 
+//하위 디렉토리 구조체 초기화
+void DirItem_init()
+{
+    diritem->items=NULL;
+    diritem->count=0;
+    diritem->loaded=false;
+    diritem->reorderOnChoice=true;
+    diritem->skipComments=false;
+    diritem->set=malloc(sizeof(HashSet));
+    hashset_init(diritem->set);
+}
+// 하위 디렉토리 구조체 메모리 해제
+void DirItem_destroy(DirItem* dir)
+{
+    if(dir) {
+        // TODO hashset destroys keys - no need to destroy items!
+        unsigned i;
+        for(i=0; i<dir->count; i++) {
+            free(dir->items[i]);
+        }
+        free(dir->items);
+        hashset_destroy(dir->set, false);
+        free(dir->set);
+        free(dir);
+    }
+}
+
+// 파일 목록 필터링
+static int file_filter(const struct dirent *entry){
+    if(strcmp(entry->d_name,"..") == 0){
+        return 0;
+    }
+    if(strcmp(entry->d_name,".") == 0){
+        return 0;
+    }
+    //stat 구조체 파일 정보
+    struct stat st;
+    // stat 함수 경로/파일 의 파일 정보 st에 저장
+    stat(entry->d_name,&st);
+    // st_mode 로 디렉토리 인지 아닌지 판별
+    if (st.st_mode & S_IFDIR){
+        return 1;
+    }
+    
+    // 0이면 출력
+    return 0;
+}
+
+// 하위 디렉토리 탐색 목록 얻기
+void DirItem_get(){
+    if(!diritem->loaded){
+        int filecount;
+        int buffer = 2048;
+        char path[buffer];
+        struct dirent **dirlist;
+        // 현재 디렉토리 위치
+        getcwd(path,buffer);
+        // 디렉토리 탐색,
+        filecount = scandir(path, &dirlist, file_filter, NULL);
+
+        if(filecount == -1){
+            printf("%s 디렉토리 스캔 에러 \n",path);
+        }
+        // 스캔 내용 문자열에 넣기
+        char namelist[255 * filecount];
+        namelist[0] = 0;
+        while(filecount--){
+            strcat(namelist,"cd ");
+            strcat(namelist,dirlist[filecount]->d_name);
+            strcat(namelist,"\n");
+            free(dirlist[filecount]);
+        }
+        free(dirlist);
+        //리스트 마지막 \n 제거
+        //디렉토리 탐색 결과 비교
+        if(namelist && strlen(namelist)){
+            diritem->count = 0;
+            char* p = strchr(namelist,'\n');
+            while (p != NULL){
+                diritem->count++;
+                p = strchr(p+1,'\n');
+            }
+
+            diritem->items = malloc(sizeof(char*) * diritem->count);
+            diritem->count = 0;
+            char* pb = namelist, *pe, *s;
+            pe = strchr(namelist, '\n');
+            while (pe != NULL)
+            {
+                *pe = 0;
+                if(!hashset_contains(diritem->set,pb)){
+                    if(!diritem->skipComments || !(strlen(pb) && pb[0] == '#')){
+                        s = hstr_strdup(pb);
+                        diritem->items[diritem->count++]=s;
+                        hashset_add(diritem->set,s);
+                    }
+                }
+                pb = pe + 1;
+                pe = strchr(pb, '\n');
+            }
+        }
+    }
+}
+
+
 void hstr_init(void)
 {
     hstr->history=NULL;
     hstr->favorites=malloc(sizeof(FavoriteItems));
     MyCommandItem_init(mycommandtest);
+    DirItem_init();
     favorites_init(hstr->favorites);
     blacklist_init(&hstr->blacklist);
     hstr_regexp_init(&hstr->regexp);
@@ -498,6 +625,8 @@ void hstr_destroy(void)
 {
     //기본 명령어 할당 종료
     MyCommandItem_destroy(mycommandtest);
+    //하위 디렉토리 메모리 해제
+    DirItem_destroy(diritem);
     favorites_destroy(hstr->favorites);
     hstr_regexp_destroy(&hstr->regexp);
     // blacklist is allocated by hstr struct
@@ -985,6 +1114,10 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
     case HSTR_VIEW_TEST:
         source = mycommandtest->items;
         count = mycommandtest->count;
+        break;
+    case HSTR_VIEW_DIRECTORY:
+        source = diritem->items;
+        count = diritem->count;
         break;
     case HSTR_VIEW_RANKING:
     default:
@@ -1550,6 +1683,18 @@ void loop_to_select(void)
                 cursorY=getcury(stdscr);
             }
             break;
+        // 하위 디렉토리 탐색 
+        case K_CTRL_H:
+            hstr->view = 4;
+            result=hstr_print_selection(maxHistoryItems, pattern);
+            print_history_label();
+            selectionCursorPosition=SELECTION_CURSOR_IN_PROMPT;
+            if(strlen(pattern)<(width-basex-1)) {
+                print_pattern(pattern, hstr->promptY, basex);
+                cursorX=getcurx(stdscr);
+                cursorY=getcury(stdscr);
+            }
+            break;
         case K_CTRL_F:
             if(selectionCursorPosition!=SELECTION_CURSOR_IN_PROMPT) {
                 result=getResultFromSelection(selectionCursorPosition, hstr, result);
@@ -1593,7 +1738,6 @@ void loop_to_select(void)
             print_pattern(pattern, hstr->promptY, basex);
             selectionCursorPosition=SELECTION_CURSOR_IN_PROMPT;
             break;
-        case K_CTRL_H:
         case K_BACKSPACE:
         case KEY_BACKSPACE:
             if(hstr_strlen(pattern)>0) {
@@ -1889,6 +2033,8 @@ int hstr_main(int argc, char* argv[])
 
     // 기본 명령어 추가 구조체 mycommandtest 에 메모리 할당
     mycommandtest = malloc(sizeof(MyCommandItem));
+    // 하위 디렉토리 구조체 메모리 할당
+    diritem = malloc(sizeof(DirItem));
     hstr=malloc(sizeof(Hstr));
     hstr_init();
 
@@ -1898,6 +2044,8 @@ int hstr_main(int argc, char* argv[])
     blacklist_load(&hstr->blacklist);
     //  기본 명령어 추가  저장된 파일 불러오기
     MyCommandItem_get(mycommandtest);
+    //하위 디렉토리 탐색
+    DirItem_get();
     // hstr cleanup is handled by hstr_exit()
     hstr_interactive();
 
