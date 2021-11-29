@@ -39,12 +39,14 @@ static bool dirty;
 #define METRICS_LOGARITHM(RANK,ORDER,LENGTH) RANK+(log(ORDER)*10.0)+LENGTH
 #define METRICS_ADDITIVE(RANK,ORDER,LENGTH)  RANK+ORDER/10+LENGTH
 
+// 사용빈도 순위
 unsigned history_ranking_function(unsigned rank, int newOccurenceOrder, size_t length) {
     long metrics=METRICS_LOGARITHM(rank, newOccurenceOrder, length);
     assert(metrics<UINT_MAX);
     return metrics;
 }
 
+// 히스토리 파일이 저장되는 .bash_history를 리턴
 char* get_history_file_name(void)
 {
     char* historyFile = getenv(ENV_VAR_HISTFILE);
@@ -81,14 +83,15 @@ void dump_prioritized_history(HistoryItems *historyItems)
     printf("\n"); fflush(stdout);
 }
 
+// .bash_history의 해당 라인이 timestamp인가?
 bool is_hist_timestamp(const char* line)
 {
     // HISTTIMEFORMAT defined > ^#1234567890$
-
+    // 첫번째 글자가 #이아니면 timestamp 아님
     if(line[0] != '#') {
         return false;
     }
-
+    // timestamp이면 
     int i;
     for(i = 1; line[i] != '\0'; ++i) {
         if(!isdigit(line[i])) {
@@ -261,7 +264,7 @@ HistoryItems* prioritized_history_create(int optionBigKeys, HashSet *blacklist)
     }
 
 }
-
+// hstr메모리 할당 종료시 수행
 void prioritized_history_destroy(HistoryItems* h)
 {
     if(h) {
@@ -297,6 +300,7 @@ void history_mgmt_clear_dirty(void)
     dirty=false;
 }
 
+// 이 밑으로는 remove
 int history_mgmt_remove_from_system_history(char *cmd)
 {
     int offset=history_search_pos(cmd, 0, 0), occurences=0;
@@ -335,7 +339,7 @@ int history_mgmt_remove_from_system_history(char *cmd)
     }
     return occurences;
 }
-
+// hstr종료
 bool history_mgmt_remove_last_history_entry(bool verbose)
 {
     using_history();
