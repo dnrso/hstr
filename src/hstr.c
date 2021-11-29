@@ -517,7 +517,6 @@ static int file_filter(const struct dirent *entry){
     return 0;
 }
 
-
 // 하위 디렉토리 탐색 목록 얻기
 void DirItem_get(){
     if(!diritem->loaded){
