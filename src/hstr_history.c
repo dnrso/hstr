@@ -91,14 +91,14 @@ bool is_hist_timestamp(const char* line)
     if(line[0] != '#') {
         return false;
     }
-    // timestamp이면 
+    // #이어도 숫자가 아니면 timestamp가 아님
     int i;
     for(i = 1; line[i] != '\0'; ++i) {
         if(!isdigit(line[i])) {
             return false;
         }
     }
-
+    // #까지 11자리가 맞으면 timestamp임
     return (i >= 11);
 }
 
