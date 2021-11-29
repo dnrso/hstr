@@ -1022,9 +1022,9 @@ void print_history_label(void)
     char screenLine[CMDLINE_LNG];   // CMDLINE_LNG 2048 
     // snprintf  ( 버퍼,  출력 크기, "내용",)
 #ifdef __APPLE__
-    snprintf(screenLine, width, "- HISTORY - view:%s (C-w) - match:%s (C-e) - case:%s (C-t) - sub dir (C-h) - %d/%d/%d ",
+    snprintf(screenLine, width, "- HISTORY - view:%s (C-w) - match:%s (C-e) - case:%s (C-t) - %d/%d/%d ",
 #else
-    snprintf(screenLine, width, "- HISTORY - view:%s (C-/) - match:%s (C-e) - case:%s (C-t) - sub dir (C-h) - %d/%d/%d ",
+    snprintf(screenLine, width, "- HISTORY - view:%s (C-/) - match:%s (C-e) - case:%s (C-t) - %d/%d/%d ",
 #endif
             HSTR_VIEW_LABELS[hstr->view],
             HSTR_MATCH_LABELS[hstr->matching],
