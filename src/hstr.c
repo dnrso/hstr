@@ -690,7 +690,6 @@ void DateItem_get(DateItem* Dateitem)
                 free(fileContent);
             }
         } else {
-            // favorites file not found > favorites don't exist yet
             Dateitem->loaded=true;
         }
         free(fileName);
