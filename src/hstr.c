@@ -1125,7 +1125,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         count=history->count;
         break;
     }
-
+    #테스트
     regmatch_t regexpMatch;
     char regexpErrorMessage[CMDLINE_LNG];
     bool regexpCompilationError=false;
