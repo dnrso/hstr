@@ -1,4 +1,13 @@
 # Installation
+
+날짜 기능을 켜시려면:
+```bash
+echo "HISTTIMEFORMAT=\"[%Y-%m-%d_%H:%M:%S]  \"" >> /etc/profile
+```
+입력 후, 로그아웃 후 재접속
+**위 명령어 적용 이전의 기록은 날짜 기능을 이용할 수 없습니다**
+
+
 Install:
 
 * [Ubuntu](#ubuntu)
@@ -32,13 +41,6 @@ Build:
 Tarball:
 
 * [build and install tarball](#build-and-install-tarball)
-
-날짜 기능을 켜시려면:
-```bash
-echo "HISTTIMEFORMAT=\"[%Y-%m-%d_%H:%M:%S]  \"" >> /etc/profile
-```
-입력 후, 로그아웃 후 재접속
-**위 명령어 적용 이전의 기록은 날짜 기능을 이용할 수 없습니다**
 
 # Install
 Install HSTR using a package.
