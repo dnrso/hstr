@@ -19,6 +19,8 @@
 #define _GNU_SOURCE
 
 #include "include/hstr.h"
+// 유닉스시간 변환을 위해
+#include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -106,7 +108,8 @@
 #define HSTR_VIEW_HISTORY      1
 #define HSTR_VIEW_FAVORITES    2
 #define HSTR_VIEW_TEST         3
-#define HSTR_VIEW_DIRECTORY    4
+#define HSTR_VIEW_DATE         4
+#define HSTR_VIEW_DIRECTORY    5
 
 #define HSTR_MATCH_SUBSTRING   0
 #define HSTR_MATCH_REGEXP      1
@@ -153,6 +156,7 @@ static const char* HSTR_VIEW_LABELS[]={
         "history",
         "favorites",
         "Base_Command",
+        "Time_Line",
         "directory"
 };
 
@@ -302,6 +306,8 @@ static const struct option long_options[] = {
 
 // 기본 명령어 파일 저장 이름
 #define FILE_HSTR_MYCOMMANDITEM ".hstr_mycommand"
+// 히스토리 저장파일(일단 그대로 가져다씀) 
+#define FILE_HSTR_DATEITEM ".hstr_mycommand"
 
 // 기본 명령어 보기 테스트 구조체  Favorite 구조체 따라함
 typedef struct MyCommandItem 
@@ -573,13 +579,134 @@ void DirItem_get(){
     }
 }
 
+// 날짜표시 구조체 선언
+typedef struct DateItem 
+{
+    char** items;
+    unsigned count;
+    bool loaded;
+    bool reorderOnChoice;
+    bool skipComments;
+    HashSet* set;
+} DateItem;
+static DateItem* dateitem;
 
+
+// 날짜표시 구조체 초기화
+void DateItem_init(DateItem* Dateitem)
+{
+    Dateitem->items=NULL;
+    Dateitem->count=0;
+    Dateitem->loaded=false;
+    Dateitem->reorderOnChoice=true;
+    Dateitem->skipComments=false;
+    Dateitem->set=malloc(sizeof(HashSet));
+    hashset_init(Dateitem->set);
+}
+
+// 날짜표시 메모리 제거 
+void DateItem_destroy(DateItem* Dateitem)
+{
+    if(Dateitem) {
+        // TODO hashset destroys keys - no need to destroy items!
+        unsigned i;
+        for(i=0; i<Dateitem->count; i++) {
+            free(Dateitem->items[i]);
+        }
+        free(Dateitem->items);
+        hashset_destroy(Dateitem->set, false);
+        free(Dateitem->set);
+        free(Dateitem);
+    }
+}
+
+// 날짜표시 구조체 파일 이름 반환
+char* DateItem_get_filename()
+{
+    char* home = getenv(ENV_VAR_HOME);
+    char* fileName = (char*) malloc(strlen(home) + 1 + strlen(FILE_HSTR_DATEITEM) + 1);
+    strcpy(fileName, home);
+    strcat(fileName, "/");
+    strcat(fileName, FILE_HSTR_DATEITEM);
+    return fileName;
+}
+
+// 히스토리 파일 읽기
+void DateItem_get(DateItem* Dateitem)
+{
+    if(!Dateitem->loaded) {
+        char* fileName = DateItem_get_filename();
+        char* fileContent = NULL;
+        if(access(fileName, F_OK) != -1) {
+            long inputFileSize;
+            // get_filename으로 받은 파일경로를 오픈하여 inputFile에 저장
+            FILE* inputFile = fopen(fileName, "rb");
+            // 파일의 rw위치를 마지막으로 옮기고, 그 위치를 inputFileSize에 저장
+            fseek(inputFile, 0, SEEK_END);
+            inputFileSize = ftell(inputFile);
+            // 위치를 다시 맨앞으로 되돌림
+            rewind(inputFile);
+            // fileContent(버퍼)에 메모리할당
+            fileContent = malloc((inputFileSize + 1) * (sizeof(char)));
+            // inputFile을 한char씩 FileSize만큼 읽어 fileContent에 저장
+            if(!fread(fileContent, sizeof(char), inputFileSize, inputFile)) {
+                // 읽기 오류테스트
+                if(ferror(inputFile)) {
+                    exit(EXIT_FAILURE);
+                }
+            }
+            // fileContent에 내용 저장했으니 inputFile은 닫고, fileContent의 말미에 0저장
+            fclose(inputFile);
+            fileContent[inputFileSize] = 0;
+
+            if(fileContent && strlen(fileContent)) {
+                Dateitem->count = 0;
+                // 줄바꿈이 있는지 검사하여 해당 포인터를 반환.
+                char* p=strchr(fileContent,'\n');
+                // 몇줄이 있는지 검사하여 Dateitem.count에 저장
+                while (p!=NULL) {
+                    Dateitem->count++;
+                    p=strchr(p+1,'\n');
+                }
+                // Dateitem.items에 char*줄 수만큼 메모리 할당하고 카운트 다시 초기화
+                Dateitem->items = malloc(sizeof(char*) * Dateitem->count);
+                Dateitem->count = 0;
+                char* pb=fileContent, *pe, *s;
+                // 첫줄 끝의 포인터를 pe에 저장. pe는 다음줄이 있는지 검사하는 변수
+                pe=strchr(fileContent, '\n');
+                // 줄바꿈이 있는 동안 반복
+                while(pe!=NULL) {
+                    *pe=0;
+                    if(!hashset_contains(Dateitem->set,pb)) {
+                        if(!Dateitem->skipComments || !(strlen(pb) && pb[0]=='#')) {
+                            s=hstr_strdup(pb);
+                            Dateitem->items[Dateitem->count++]=s;
+                            hashset_add(Dateitem->set,s);
+                        }
+                    }
+                    pb=pe+1;
+                    pe=strchr(pb, '\n');
+                }
+                free(fileContent);
+            }
+        } else {
+            // favorites file not found > favorites don't exist yet
+            Dateitem->loaded=true;
+        }
+        free(fileName);
+    }
+}
+
+// 시작시 처음 초기화
 void hstr_init(void)
 {
     hstr->history=NULL;
     hstr->favorites=malloc(sizeof(FavoriteItems));
+    // 기본명령어 하위 디렉토리 초기화
     MyCommandItem_init(mycommandtest);
     DirItem_init();
+    // 날짜 정렬 구조체 초기화
+    DateItem_init(dateitem);
     favorites_init(hstr->favorites);
     blacklist_init(&hstr->blacklist);
     hstr_regexp_init(&hstr->regexp);
@@ -627,6 +754,8 @@ void hstr_destroy(void)
     MyCommandItem_destroy(mycommandtest);
     //하위 디렉토리 메모리 해제
     DirItem_destroy(diritem);
+    //날짜표시 메모리종료
+    DateItem_destroy(dateitem);
     favorites_destroy(hstr->favorites);
     hstr_regexp_destroy(&hstr->regexp);
     // blacklist is allocated by hstr struct
@@ -1102,6 +1231,7 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
 
     // HISTORY 1, FAVORITES 2, RANKING 0
     // 기본 명령어 추가 HSTR_VIEW_TEST 3 
+    // 디렉토리를 5로 변경하고 4에 날짜보기 추가
     switch(hstr->view) {
     case HSTR_VIEW_HISTORY:
         source=history->rawItems;
@@ -1115,6 +1245,10 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         source = mycommandtest->items;
         count = mycommandtest->count;
         break;
+    case HSTR_VIEW_DATE:
+        source = dateitem->items;
+        count = dateitem->count;
+        break;
     case HSTR_VIEW_DIRECTORY:
         source = diritem->items;
         count = diritem->count;
@@ -1125,7 +1259,6 @@ unsigned hstr_make_selection(char* prefix, HistoryItems* history, unsigned maxSe
         count=history->count;
         break;
     }
-
     regmatch_t regexpMatch;
     char regexpErrorMessage[CMDLINE_LNG];
     bool regexpCompilationError=false;
@@ -1476,11 +1609,13 @@ int remove_from_history_model(char* almostDead)
     }
 }
 
+
 void hstr_next_view(void)
 {
     hstr->view++;
     // 3의 나머지 로 0,1,2,3 순환
-    hstr->view=hstr->view%4;
+    // 날짜추가로 4->5 변경했음
+    hstr->view=hstr->view%5;
 }
 
 void stdout_history_and_return(void)
@@ -1685,7 +1820,8 @@ void loop_to_select(void)
             break;
         // 하위 디렉토리 탐색 
         case K_CTRL_H:
-            hstr->view = 4;
+            // 날짜를 4에 추가하고 디렉토리를 5로 변경
+            hstr->view = 5;
             result=hstr_print_selection(maxHistoryItems, pattern);
             print_history_label();
             selectionCursorPosition=SELECTION_CURSOR_IN_PROMPT;
@@ -2035,6 +2171,8 @@ int hstr_main(int argc, char* argv[])
     mycommandtest = malloc(sizeof(MyCommandItem));
     // 하위 디렉토리 구조체 메모리 할당
     diritem = malloc(sizeof(DirItem));
+    // 날짜구조체
+    dateitem = malloc(sizeof(DateItem));
     hstr=malloc(sizeof(Hstr));
     hstr_init();
 
@@ -2046,6 +2184,8 @@ int hstr_main(int argc, char* argv[])
     MyCommandItem_get(mycommandtest);
     //하위 디렉토리 탐색
     DirItem_get();
+    // 날짜 불러오기
+    DateItem_get(dateitem);
     // hstr cleanup is handled by hstr_exit()
     hstr_interactive();
 
