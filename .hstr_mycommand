@@ -1,24 +1,22 @@
-# cd [파일경로]   파일경로로 이동
-cd
-# ls  파일 목록 표시
-ls
-#touch  파일 생성, 날짜 변경
-touch
-#mkdir 디렉토리 생성
-mkdir
-#cp  파일 복사
-cp
-#mv  파일 이동
-mv
-#rm 파일 제거
-rm
-#cat 내용 출력하거나 파일 생성
-cat
-#find [경로] -name [검색어] 파일,디렉토리 검색  
-find
-#redirection  출력결과 파일로 저장
-redirection
-#pwd  현재 폭더 위치 출력
-pwd
-touch
-find
+!!!!     man 명령어 : 명령어에 대한 설명표시     !!!!
+cd [경로] : 경로로 이동. 경로 없으면 홈디렉토리.
+cd .. : 상위디렉토리로 이동.  /  cd ~username : 유저의 홈 디렉토리로 이동
+sudo su root : root(관리자모드)로 진입
+
+ls : 현재 디렉토리의 파일 목록 표시 -l 자세히 -t 시간별 -rt 오래된 시간부터
+touch : 파일 생성, 날짜 변경
+cat : 파일내용 한꺼번에 출력 또는 파일 생성
+more : 파일내용 한 페이지씩 출력  /  less : 위아래로 이동가능하게 출력
+mkdir : 디렉토리 생성  /  rmdir : 디렉토리 삭제
+cp : 파일 복사  /  mv : 파일 이동  /  rm : 파일 제거
+find [경로] -name [검색어] : 파일,디렉토리 검색 / which [파일] : 파일 경로출력
+vi , nano : 파일 생성 및 편집기
+
+redirection : 출력결과 파일로 저장
+pwd : 현재 폴더 위치 출력
+wc : 글자수 카운트. -l 라인수 카운트
+ps : 실행중인 프로세스  /  jobs : 수행하는 작업
+tar -cvf [결과물이름] [묶을 파일들]: 파일 묶기(압축x)  /  tar -xvf : 묶음해제
+gzip : 파일 압축  /  ungzip : 압축 해제
+
+CTRL + Z : 작업중지  /  CTRL + C : 작업종료
