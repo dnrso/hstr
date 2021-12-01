@@ -21,6 +21,8 @@
 #include "include/hstr.h"
 // 유닉스시간 변환을 위해
 #include <time.h>
+// atoi사용을 위해
+#include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -308,7 +310,7 @@ static const struct option long_options[] = {
 // 기본 명령어 파일 저장 이름
 #define FILE_HSTR_MYCOMMANDITEM ".hstr_mycommand"
 // 히스토리 저장파일(일단 그대로 가져다씀) 
-#define FILE_HSTR_DATEITEM ".hstr_mycommand"
+#define FILE_HSTR_DATEITEM ".bash_history"
 
 // 기본 명령어 보기 테스트 구조체  Favorite 구조체 따라함
 typedef struct MyCommandItem 
@@ -666,7 +668,7 @@ void DateItem_get(DateItem* Dateitem)
 {
     if(!Dateitem->loaded) {
         char* fileName = DateItem_get_filename();
-        char* fileContent = NULL;
+        // 실제 내용을 저장할 변수
         if(access(fileName, F_OK) != -1) {
             long inputFileSize;
             // get_filename으로 받은 파일경로를 오픈하여 inputFile에 저장
@@ -674,10 +676,10 @@ void DateItem_get(DateItem* Dateitem)
             // 파일의 rw위치를 마지막으로 옮기고, 그 위치를 inputFileSize에 저장
             fseek(inputFile, 0, SEEK_END);
             inputFileSize = ftell(inputFile);
+            char fileContent[inputFileSize];
+            char realfileContent[inputFileSize];
             // 위치를 다시 맨앞으로 되돌림
             rewind(inputFile);
-            // fileContent(버퍼)에 메모리할당
-            fileContent = malloc((inputFileSize + 1) * (sizeof(char)));
             // inputFile을 한char씩 FileSize만큼 읽어 fileContent에 저장
             if(!fread(fileContent, sizeof(char), inputFileSize, inputFile)) {
                 // 읽기 오류테스트
@@ -701,9 +703,29 @@ void DateItem_get(DateItem* Dateitem)
                 // Dateitem.items에 char*줄 수만큼 메모리 할당하고 카운트 다시 초기화
                 Dateitem->items = malloc(sizeof(char*) * Dateitem->count);
                 Dateitem->count = 0;
-                char* pb=fileContent, *pe, *s;
+                
+                time_t timer;
+                struct tm *t;
+
+                char* q = strtok(fileContent, "\n");
+                char st[20] = {0x00};
+                while (q != NULL) {
+                    if(q[0] == '#'){
+                        strcpy(q, q+1);
+                        timer = atoi(q);
+                        t = localtime(&timer);
+                        sprintf(st, "%d/%d  ", t->tm_mon+1, t->tm_mday);
+                        strcat(realfileContent, st);
+                        q = strtok(NULL, "\n");
+                        strcat(realfileContent, q);
+                        strcat(realfileContent, "\n");
+                    }
+                    q = strtok(NULL, "\n");
+                }
+
+                char* pb=realfileContent, *pe, *s;
                 // 첫줄 끝의 포인터를 pe에 저장. pe는 다음줄이 있는지 검사하는 변수
-                pe=strchr(fileContent, '\n');
+                pe=strchr(realfileContent, '\n');
                 // 줄바꿈이 있는 동안 반복
                 while(pe!=NULL) {
                     *pe=0;
@@ -720,6 +742,7 @@ void DateItem_get(DateItem* Dateitem)
                 free(fileContent);
             }
         } else {
+            // favorites file not found > favorites don't exist yet
             Dateitem->loaded=true;
         }
         free(fileName);
