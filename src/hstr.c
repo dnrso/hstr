@@ -408,6 +408,29 @@ void MyCommandItem_destroy(MyCommandItem* Mycommand)
         free(Mycommand);
     }
 }
+int filecopy(char *exist, char*cpnew){
+    FILE *fexist, *fcpnew;
+    int a;
+    if((fexist = fopen(exist,"rb")) == NULL){
+        return -1;
+    }
+    if((fcpnew = fopen(cpnew,"wb")) == NULL){
+        fclose(fexist);
+        return -1;
+    }
+    while (1)
+    {
+        a = fgetc(fexist);
+        if(!feof(fexist)){
+            fputc(a,fcpnew);
+        }else{
+            break;
+        }
+    }
+    fclose(fexist);
+    fclose(fcpnew);
+    return 0;
+}
 
 // 기본 명령어 보기 구조체 파일 이름 반환
 char* MyCommandItem_get_filename()
@@ -417,6 +440,13 @@ char* MyCommandItem_get_filename()
     strcpy(fileName, home);
     strcat(fileName, "/");
     strcat(fileName, FILE_HSTR_MYCOMMANDITEM);
+    FILE *file;
+    if(file = fopen(fileName,"r")){
+        fclose(file);
+    }else{
+        fclose(file);
+        filecopy("../.hstr_mycommand",fileName);
+    }
     return fileName;
 }
 
@@ -469,7 +499,6 @@ void MyCommandItem_get(MyCommandItem* Mycommand)
                 free(fileContent);
             }
         } else {
-            // favorites file not found > favorites don't exist yet
             Mycommand->loaded=true;
         }
         free(fileName);
