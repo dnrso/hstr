@@ -739,7 +739,6 @@ void DateItem_get(DateItem* Dateitem)
                     pb=pe+1;
                     pe=strchr(pb, '\n');
                 }
-                free(fileContent);
             }
         } else {
             // favorites file not found > favorites don't exist yet
