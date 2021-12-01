@@ -53,6 +53,7 @@
 #define K_CTRL_SLASH 31
 //하위 디렉토리 탐색  출력 키 컨트롤 D
 #define K_CRTL_D  4
+#define K_CTRL_B  2
 
 #define K_ESC 27
 #define K_TAB 9
@@ -286,7 +287,7 @@ static const char* HELP_STRING=
 
 // TODO help screen - curses window (tig)
 static const char* LABEL_HELP=
-        "Type to filter, UP/DOWN move, RET/TAB select, DEL remove, C-f add favorite, C-g cancel C-h dir";
+        "Type to filter, UP/DOWN move, RET/TAB select, DEL remove, C-f add favorite, C-g cancel C-h dir c-b tag";
 
 #define GETOPT_NO_ARGUMENT           0
 #define GETOPT_REQUIRED_ARGUMENT     1
@@ -1828,6 +1829,30 @@ void loop_to_select(void)
                 print_pattern(pattern, hstr->promptY, basex);
                 cursorX=getcurx(stdscr);
                 cursorY=getcury(stdscr);
+            }
+            break;
+        // 태그 추가
+        case K_CTRL_B:
+            if(selectionCursorPosition!=SELECTION_CURSOR_IN_PROMPT) {
+                result=getResultFromSelection(selectionCursorPosition, hstr, result);
+                if(hstr->view==HSTR_VIEW_FAVORITES) {
+                    favorites_tag_add(hstr->favorites, result);
+                } else {
+                    favorites_add(hstr->favorites, result);
+                    favorites_tag_add(hstr->favorites,result);
+                }
+                hstr_print_selection(maxHistoryItems, pattern);
+                selectionCursorPosition=SELECTION_CURSOR_IN_PROMPT;
+                if(hstr->view!=HSTR_VIEW_FAVORITES) {
+                    print_cmd_added_favorite_label(result);
+                    hideNotificationOnNextTick=TRUE;
+                }
+                // TODO code review
+                if(strlen(pattern)<(width-basex-1)) {
+                    print_pattern(pattern, hstr->promptY, basex);
+                    cursorX=getcurx(stdscr);
+                    cursorY=getcury(stdscr);
+                }
             }
             break;
         case K_CTRL_F:

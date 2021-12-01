@@ -17,6 +17,8 @@
 */
 
 #include "include/hstr_favorites.h"
+#include <ncursesw/curses.h>
+
 
 #define FAVORITE_SEGMENT_SIZE 10
 
@@ -139,11 +141,12 @@ void favorites_save(FavoriteItems* favorites)
     }
     free(fileName);
 }
-
+// 즐겨찾기 추가 ( 구조체, 추가 문자열)
 void favorites_add(FavoriteItems* favorites, char* newFavorite)
 {
     if(favorites->count) {
         favorites->items=realloc(favorites->items, sizeof(char*) * ++favorites->count);
+        // strup 문자열 복사 items 배열에 추가
         favorites->items[favorites->count-1]=hstr_strdup(newFavorite);
         favorites_choose(favorites, newFavorite);
     } else {
@@ -156,6 +159,48 @@ void favorites_add(FavoriteItems* favorites, char* newFavorite)
     hashset_add(favorites->set, newFavorite);
 }
 
+//명령어 태그 추가
+void favorites_tag_add(FavoriteItems* favorites, char* choice)
+{   
+    char tagname[256];
+    int row,col;
+    getmaxyx(stdscr,row,col);
+    echo();
+    char mesg[]="Enter a tag name: ";
+    mvprintw(row/2,(col-strlen(mesg))/2,"%s",mesg);
+    getstr(tagname);
+    noecho();
+
+    if(favorites->reorderOnChoice && favorites->count && choice) {
+        unsigned r;
+        char* b=NULL, *next;
+        for(r=0; r<favorites->count; r++) {
+            // 목록중 같은게 있으면
+            if(!strcmp(favorites->items[r],choice)) {
+                //순서 첫번째로 옮김
+                favorites->items[0]=favorites->items[r];
+                if(b) {
+                    //원래 첫번째 있던거 자리 바꿈
+                    favorites->items[r]=b;
+                }
+                char *add = malloc(sizeof(char) * ((int)strlen(tagname) + (int)strlen(favorites->items[0]) -4) );
+                add = hstr_strdup(favorites->items[0]);
+                add = strcat(add,"  @");
+                add = strcat(add,tagname);
+                favorites->items[0] = hstr_strdup(add);
+                free(add);
+                favorites_save(favorites);
+                return;
+            }
+            next=favorites->items[r];
+            favorites->items[r]=b;
+            b=next;
+        }
+    }
+}
+
+
+// 즐겨찾기 명령어를 목록 맨 위로 옮김
 void favorites_choose(FavoriteItems* favorites, char* choice)
 {
     if(favorites->reorderOnChoice && favorites->count && choice) {
